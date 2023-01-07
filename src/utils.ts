@@ -1,8 +1,8 @@
 import * as path from "path";
 import md5 from "md5";
-import {  TAbstractFile, TFile, TFolder,  htmlToMarkdown } from "obsidian";
+import { TAbstractFile, TFile, TFolder, htmlToMarkdown } from "obsidian";
 
-import { ATTACHMENT_URL_REGEXP, EMBED_URL_REGEXP, GMT_IMAGE_FORMAT } from "./config";
+import { ATTACHMENT_URL_REGEXP, EMBED_URL_REGEXP, GMT_IMAGE_FORMAT, NO_MKDWN_FORMAT } from "./config";
 import MarkdownExportPlugin from "./main";
 
 type CopyMarkdownOptions = {
@@ -18,6 +18,11 @@ export async function getImageLinks(markdown: string) {
 export async function getEmbeds(markdown: string) {
 	const embeds = markdown.matchAll(EMBED_URL_REGEXP);
 	return Array.from(embeds);
+}
+
+export async function getLinks(markdown: string) {
+	const links = markdown.matchAll(LINK_URL_REGEXP);
+	return Array.from(links)
 }
 
 // get all markdown parameters
@@ -116,23 +121,24 @@ export async function tryCopyImage(
 					const imageLinkMd5 = md5(imageLink);
 					const imageExt = path.extname(imageLink);
 					const ifile = plugin.app.metadataCache.getFirstLinkpathDest(imageLink, contentPath);
-					if (ifile){
-					plugin.app.vault.adapter
-						.copy(
-							ifile.path,
-							path.join(
-								plugin.settings.output,
-								plugin.settings.attachment,
-								imageLinkMd5.concat(imageExt)
+					if (ifile) {
+						plugin.app.vault.adapter
+							.copy(
+								ifile.path,
+								path.join(
+									plugin.settings.output,
+									plugin.settings.attachment,
+									imageLink
+									// imageLinkMd5.concat(imageExt) original code
+								)
 							)
-						)
-						.catch((error) => {
-							if (
-								!error.message.contains("file already exists")
-							) {
-								throw error;
-							}
-						});
+							.catch((error) => {
+								if (
+									!error.message.contains("file already exists")
+								) {
+									throw error;
+								}
+							});
 					}
 				}
 			});
@@ -161,15 +167,15 @@ export async function tryCopyMarkdown(
 }
 
 export async function getEmbedMap(plugin: MarkdownExportPlugin, content: string, path: string) {
-    // key：link url 
-    // value： embed content parse from html document
+	// key：link url 
+	// value： embed content parse from html document
 	const embedMap = new Map();
 	const embedList = Array.from(document.documentElement.getElementsByClassName('internal-embed'));
 
 
-    Array.from(embedList).forEach((el) => {
-      // markdown-embed-content markdown-embed-page
-      const embedContentHtml = el.getElementsByClassName('markdown-embed-content')[0];
+	Array.from(embedList).forEach((el) => {
+		// markdown-embed-content markdown-embed-page
+		const embedContentHtml = el.getElementsByClassName('markdown-embed-content')[0];
 
 		if (embedContentHtml) {
 			let embedValue = htmlToMarkdown(embedContentHtml.innerHTML);
@@ -177,10 +183,10 @@ export async function getEmbedMap(plugin: MarkdownExportPlugin, content: string,
 			const embedKey = el.getAttribute("src");
 			embedMap.set(embedKey, embedValue);
 		}
-    });
+	});
 
-    return embedMap;
-  }
+	return embedMap;
+}
 
 
 export async function tryCopyMarkdownByRead(
@@ -189,38 +195,55 @@ export async function tryCopyMarkdownByRead(
 ) {
 	try {
 		await plugin.app.vault.adapter.read(file.path).then(async (content) => {
+			console.log("content:", content)
 			const imageLinks = await getImageLinks(content);
 
 			for (const index in imageLinks) {
 				const rawImageLink = imageLinks[index][0];
+				// imageLink is the actual name of the file. Figure out how to use this.
 				const imageLink = imageLinks[index][1];
 				const imageLinkMd5 = md5(imageLink);
 				const imageExt = path.extname(imageLink);
 
 				const hashLink = path.join(
 					plugin.settings.attachment,
+					// imageLink.replace(/ /g,"_").concat(imageExt)
 					imageLinkMd5.concat(imageExt)
 				);
 
 				if (plugin.settings.GTM) {
 					content = content.replace(
 						rawImageLink,
-						GMT_IMAGE_FORMAT.format(hashLink)
+						GMT_IMAGE_FORMAT.format(imageLink, "<" + imageLink + ">")
 					);
-				} else {
-					content = content.replace(imageLink, hashLink);
+					console.log("content in settings:", content)
+				}
+				else if(plugin.settings.No_Mkdwn) {
+					content = content.replace(rawImageLink, NO_MKDWN_FORMAT.format(imageLink))
+
+				}
+				else {
+					content = content.replace(imageLink, hashLink); original code
 				}
 			}
 			const cfile = plugin.app.workspace.getActiveFile();
-			if (cfile != undefined){
-				const embedMap = await getEmbedMap(plugin, content, cfile.path);
-				const embeds = await getEmbeds(content);
-				for (const index in embeds) {
-					const url = embeds[index][1];
-					content = content.replace(embeds[index][0], embedMap.get(url));
-				}
-			}
-			
+			// console.log('cfile:', cfile)
+
+
+			// for some reason this doesn't trigger if github markdown is on. Not sure what's it's checking for if that's the case now.
+
+			// if (cfile != undefined){
+			// 	console.log('in cfile if loop')
+			// 	const embedMap = await getEmbedMap(plugin, content, cfile.path);
+			// 	const embeds = await getEmbeds(content);
+			// 	for (const index in embeds) {
+			// 		const url = embeds[index][1];
+			// 		console.log('cfile_url', url)
+			// 		console.log('cfile_embed', embeds[index][0], embedMap.get(url))
+			// 		content = content.replace(embeds[index][0], "Test\\"+embeds[index][0]);
+			// 	}
+			// }
+
 
 			await tryCopyImage(plugin, file.path);
 			await tryCreateFolder(

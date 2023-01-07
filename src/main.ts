@@ -51,7 +51,7 @@ export default class MarkdownExportPlugin extends Plugin {
 		);
 	}
 
-	onunload() {}
+	onunload() { }
 
 	async loadSettings() {
 		this.settings = Object.assign(
@@ -106,7 +106,7 @@ class MarkdownExportSettingTab extends PluginSettingTab {
 						await this.plugin.saveSettings();
 					})
 			);
-
+		// TODO: #25 Make Markdown settings a dropdown with 3 options. Github, standard, and None
 		new Setting(containerEl)
 			.setName("Use GitHub Flavored Markdown Format")
 			.setDesc(
@@ -117,6 +117,19 @@ class MarkdownExportSettingTab extends PluginSettingTab {
 					.setValue(this.plugin.settings.GTM)
 					.onChange(async (value: boolean) => {
 						this.plugin.settings.GTM = value;
+						await this.plugin.saveSettings();
+					})
+			);
+		new Setting(containerEl)
+			.setName("No Markdown Formatting")
+			.setDesc(
+				"For sharing with others who arent familiar with markdown"
+			)
+			.addToggle((toggle) =>
+				toggle
+					.setValue(this.plugin.settings.No_Mkdwn)
+					.onChange(async (value: boolean) => {
+						this.plugin.settings.No_Mkdwn = value;
 						await this.plugin.saveSettings();
 					})
 			);
