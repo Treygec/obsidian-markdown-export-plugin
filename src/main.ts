@@ -159,5 +159,18 @@ class MarkdownExportSettingTab extends PluginSettingTab {
 						await this.plugin.saveSettings();
 					})
 			);
+		new Setting(containerEl)
+			.setName("Export all Links")
+			.setDesc(
+				"Export all links instead of just attachments and embeds"
+			)
+			.addToggle((toggle) =>
+				toggle
+					.setValue(this.plugin.settings.all_links)
+					.onChange(async (value: boolean) => {
+						this.plugin.settings.all_links = value;
+						await this.plugin.saveSettings();
+					})
+			);
 	}
 }

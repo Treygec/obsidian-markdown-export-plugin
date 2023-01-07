@@ -2,7 +2,7 @@ import * as path from "path";
 import md5 from "md5";
 import { TAbstractFile, TFile, TFolder, htmlToMarkdown } from "obsidian";
 
-import { ATTACHMENT_URL_REGEXP, EMBED_URL_REGEXP, GMT_IMAGE_FORMAT, NO_MKDWN_FORMAT } from "./config";
+import { ATTACHMENT_URL_REGEXP, EMBED_URL_REGEXP, GMT_IMAGE_FORMAT, NO_MKDWN_FORMAT, LINK_URL_REGEXP } from "./config";
 import MarkdownExportPlugin from "./main";
 
 type CopyMarkdownOptions = {
@@ -11,13 +11,19 @@ type CopyMarkdownOptions = {
 };
 
 export async function getImageLinks(markdown: string) {
-	const imageLinks = markdown.matchAll(ATTACHMENT_URL_REGEXP);
+	const imageLinks = markdown.matchAll(LINK_URL_REGEXP);
 	return Array.from(imageLinks);
 }
 
 export async function getEmbeds(markdown: string) {
+
+	// if (plugin.settings.all_links) {
+	// 	const embeds = markdown.matchAll(LINK_URL_REGEXP);
+	// 	return Array.from(embeds);
+	// } else {
 	const embeds = markdown.matchAll(EMBED_URL_REGEXP);
-	return Array.from(embeds);
+	// 	return Array.from(embeds);
+	// }
 }
 
 export async function getLinks(markdown: string) {
@@ -117,12 +123,22 @@ export async function tryCopyImage(
 			.then(async (content) => {
 				const imageLinks = await getImageLinks(content);
 				for (const index in imageLinks) {
-					const imageLink = imageLinks[index][1];
+					console.log("copy image imageLink", index, imageLinks[index])
+					var imageLink = imageLinks[index][1];
 
 					const imageLinkMd5 = md5(imageLink);
 					const imageExt = path.extname(imageLink);
+					if (imageLink.contains("#")) {
+						imageLink = imageLink.split("#")[0]
+					}
+					// if (imageExt) {
+					// 	imageLink.concat(".md")
+					// }
+					console.log("imageLink", imageLink)
 					const ifile = plugin.app.metadataCache.getFirstLinkpathDest(imageLink, contentPath);
+					console.log('ifile', ifile)
 					if (ifile) {
+						console.log("in ifile loop", ifile)
 						if (plugin.settings.individual_folders) {
 							plugin.app.vault.adapter
 								.copy(
@@ -131,7 +147,7 @@ export async function tryCopyImage(
 										plugin.settings.output,
 										fileName,
 										plugin.settings.attachments,
-										imageLink
+										ifile.name
 									)
 								)
 								.catch((error) => {
@@ -192,6 +208,7 @@ export async function getEmbedMap(plugin: MarkdownExportPlugin, content: string,
 	// value： embed content parse from html document
 	const embedMap = new Map();
 	const embedList = Array.from(document.documentElement.getElementsByClassName('internal-embed'));
+	// console.log("embedlist", embedList)
 
 
 	Array.from(embedList).forEach((el) => {
@@ -205,7 +222,7 @@ export async function getEmbedMap(plugin: MarkdownExportPlugin, content: string,
 			embedMap.set(embedKey, embedValue);
 		}
 	});
-
+	// console.log("return map:", embedMap)
 	return embedMap;
 }
 
@@ -216,9 +233,17 @@ export async function tryCopyMarkdownByRead(
 ) {
 	try {
 		await plugin.app.vault.adapter.read(file.path).then(async (content) => {
+			// console.log('markdown contents:', content)
 			const imageLinks = await getImageLinks(content);
+			const embededLinks = await getEmbeds(content)
+			const otherLinks = await getLinks(content)
+
+			// console.log('imagelinks', imageLinks)
+			// console.log('embeds:', embededLinks)
+			// console.log('links:', otherLinks)
 
 			for (const index in imageLinks) {
+				// console.log("in loop:", index, imageLinks[index])
 				const rawImageLink = imageLinks[index][0];
 				// imageLink is the actual name of the file.
 				const imageLink = imageLinks[index][1];
@@ -248,16 +273,17 @@ export async function tryCopyMarkdownByRead(
 			const cfile = plugin.app.workspace.getActiveFile();
 
 			// for some reason this doesn't trigger if github markdown is on. Not sure what's it's checking for if that's the case now.
-
-			// if (cfile != undefined){
-			// 	console.log('in cfile if loop')
+			// console.log("cfile:", cfile)
+			// if (cfile != undefined) {
+			// 	// console.log('in cfile if loop')
 			// 	const embedMap = await getEmbedMap(plugin, content, cfile.path);
 			// 	const embeds = await getEmbeds(content);
+			// 	// console.log("embeds:", embeds)
 			// 	for (const index in embeds) {
 			// 		const url = embeds[index][1];
-			// 		console.log('cfile_url', url)
-			// 		console.log('cfile_embed', embeds[index][0], embedMap.get(url))
-			// 		content = content.replace(embeds[index][0], "Test\\"+embeds[index][0]);
+			// 		// console.log('cfile_url', url)
+			// 		// console.log('cfile_embed', embeds[index][0], embedMap.get(url))
+			// 		content = content.replace(embeds[index][0], "Test\\" + embeds[index][0]);
 			// 	}
 			// }
 
