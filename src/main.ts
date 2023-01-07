@@ -27,13 +27,26 @@ export default class MarkdownExportPlugin extends Plugin {
 					item.setTitle("Export all to package");
 					item.onClick(async () => {
 						// try create attachment directory
-						await tryCreateFolder(
-							this,
-							path.join(
-								this.settings.output,
-								this.settings.attachment
-							)
-						);
+						if (this.settings.individual_folders) {
+
+							await tryCreateFolder(
+								this,
+								path.join(
+									this.settings.output,
+									path.parse(file.name).name,
+									this.settings.attachments
+								)
+							);
+						} else {
+							await tryCreateFolder(
+								this,
+								path.join(
+									this.settings.output,
+									this.settings.attachments
+								)
+							);
+
+						}
 
 						// run
 						await tryRun(this, file);
@@ -100,7 +113,7 @@ class MarkdownExportSettingTab extends PluginSettingTab {
 			.addText((text) =>
 				text
 					.setPlaceholder("Enter attachment path")
-					.setValue(this.plugin.settings.attachment)
+					.setValue(this.plugin.settings.attachments)
 					.onChange(async (value) => {
 						this.plugin.settings.output = value;
 						await this.plugin.saveSettings();
@@ -130,6 +143,19 @@ class MarkdownExportSettingTab extends PluginSettingTab {
 					.setValue(this.plugin.settings.No_Mkdwn)
 					.onChange(async (value: boolean) => {
 						this.plugin.settings.No_Mkdwn = value;
+						await this.plugin.saveSettings();
+					})
+			);
+		new Setting(containerEl)
+			.setName("Export to individual folder")
+			.setDesc(
+				"Create a single folder that contains the entire export for a note"
+			)
+			.addToggle((toggle) =>
+				toggle
+					.setValue(this.plugin.settings.individual_folders)
+					.onChange(async (value: boolean) => {
+						this.plugin.settings.individual_folders = value;
 						await this.plugin.saveSettings();
 					})
 			);

@@ -108,7 +108,8 @@ export async function tryCreateFolder(
 
 export async function tryCopyImage(
 	plugin: MarkdownExportPlugin,
-	contentPath: string
+	contentPath: string,
+	fileName: string
 ) {
 	try {
 		await plugin.app.vault.adapter
@@ -122,23 +123,43 @@ export async function tryCopyImage(
 					const imageExt = path.extname(imageLink);
 					const ifile = plugin.app.metadataCache.getFirstLinkpathDest(imageLink, contentPath);
 					if (ifile) {
-						plugin.app.vault.adapter
-							.copy(
-								ifile.path,
-								path.join(
-									plugin.settings.output,
-									plugin.settings.attachment,
-									imageLink
-									// imageLinkMd5.concat(imageExt) original code
+						if (plugin.settings.individual_folders) {
+							plugin.app.vault.adapter
+								.copy(
+									ifile.path,
+									path.join(
+										plugin.settings.output,
+										fileName,
+										plugin.settings.attachments,
+										imageLink
+									)
 								)
-							)
-							.catch((error) => {
-								if (
-									!error.message.contains("file already exists")
-								) {
-									throw error;
-								}
-							});
+								.catch((error) => {
+									if (
+										!error.message.contains("file already exists")
+									) {
+										throw error;
+									}
+								});
+						} else {
+							plugin.app.vault.adapter
+								.copy(
+									ifile.path,
+									path.join(
+										plugin.settings.output,
+										plugin.settings.attachments,
+										imageLink
+									)
+								)
+								.catch((error) => {
+									if (
+										!error.message.contains("file already exists")
+									) {
+										throw error;
+									}
+								});
+
+						}
 					}
 				}
 			});
@@ -195,19 +216,18 @@ export async function tryCopyMarkdownByRead(
 ) {
 	try {
 		await plugin.app.vault.adapter.read(file.path).then(async (content) => {
-			console.log("content:", content)
 			const imageLinks = await getImageLinks(content);
 
 			for (const index in imageLinks) {
 				const rawImageLink = imageLinks[index][0];
-				// imageLink is the actual name of the file. Figure out how to use this.
+				// imageLink is the actual name of the file.
 				const imageLink = imageLinks[index][1];
 				const imageLinkMd5 = md5(imageLink);
 				const imageExt = path.extname(imageLink);
 
 				const hashLink = path.join(
-					plugin.settings.attachment,
-					// imageLink.replace(/ /g,"_").concat(imageExt)
+					path.parse(file.name).name,
+					plugin.settings.attachments,
 					imageLinkMd5.concat(imageExt)
 				);
 
@@ -216,19 +236,16 @@ export async function tryCopyMarkdownByRead(
 						rawImageLink,
 						GMT_IMAGE_FORMAT.format(imageLink, "<" + imageLink + ">")
 					);
-					console.log("content in settings:", content)
 				}
-				else if(plugin.settings.No_Mkdwn) {
+				else if (plugin.settings.No_Mkdwn) {
 					content = content.replace(rawImageLink, NO_MKDWN_FORMAT.format(imageLink))
 
 				}
 				else {
-					content = content.replace(imageLink, hashLink); original code
+					// content = content.replace(imageLink, hashLink);
 				}
 			}
 			const cfile = plugin.app.workspace.getActiveFile();
-			// console.log('cfile:', cfile)
-
 
 			// for some reason this doesn't trigger if github markdown is on. Not sure what's it's checking for if that's the case now.
 
@@ -244,17 +261,26 @@ export async function tryCopyMarkdownByRead(
 			// 	}
 			// }
 
+			await tryCopyImage(plugin, file.path, path.parse(file.name).name);
 
-			await tryCopyImage(plugin, file.path);
 			await tryCreateFolder(
 				plugin,
 				path.join(plugin.settings.output, outputSubPath)
 			);
+			if (plugin.settings.individual_folders) {
 
-			plugin.app.vault.adapter.write(
-				path.join(plugin.settings.output, outputSubPath, file.name),
-				content
-			);
+				plugin.app.vault.adapter.write(
+					path.join(plugin.settings.output, path.parse(file.name).name, outputSubPath, file.name),
+					content
+				);
+			} else {
+
+				plugin.app.vault.adapter.write(
+					path.join(plugin.settings.output, outputSubPath, file.name),
+					content
+				);
+
+			}
 		});
 	} catch (error) {
 		if (!error.message.contains("file already exists")) {

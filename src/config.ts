@@ -5,14 +5,17 @@ export const GMT_IMAGE_FORMAT = "![{0}]({1})";
 export const NO_MKDWN_FORMAT = "Attachments\\\\{0}";
 export interface MarkdownExportPluginSettings {
 	output: string;
-	attachment: string;
+	attachments: string;
 	GTM: boolean;
 	No_Mkdwn: boolean;
+	individual_folders: boolean;
+
 }
 
 export const DEFAULT_SETTINGS: MarkdownExportPluginSettings = {
 	output: "output",
-	attachment: "attachment",
+	attachments: "attachments",
 	GTM: true,
-	No_Mkdwn: false
+	No_Mkdwn: false,
+	individual_folders: true
 };
