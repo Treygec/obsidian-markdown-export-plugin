@@ -2,7 +2,7 @@ import * as path from "path";
 import md5 from "md5";
 import { TAbstractFile, TFile, TFolder, htmlToMarkdown } from "obsidian";
 
-import { ATTACHMENT_URL_REGEXP, EMBED_URL_REGEXP, GMT_IMAGE_FORMAT, NO_MKDWN_FORMAT, LINK_URL_REGEXP } from "./config";
+import { EMBED_URL_REGEXP, GMT_IMAGE_FORMAT, NO_MKDWN_FORMAT, LINK_URL_REGEXP, ALL_ATTACHMENT_REGEXP } from "./config";
 import MarkdownExportPlugin from "./main";
 
 type CopyMarkdownOptions = {
@@ -11,24 +11,48 @@ type CopyMarkdownOptions = {
 };
 
 export async function getImageLinks(markdown: string) {
-	const imageLinks = markdown.matchAll(LINK_URL_REGEXP);
+	const imageLinks = markdown.matchAll(ALL_ATTACHMENT_REGEXP);
 	return Array.from(imageLinks);
 }
 
 export async function getEmbeds(markdown: string) {
-
-	// if (plugin.settings.all_links) {
-	// 	const embeds = markdown.matchAll(LINK_URL_REGEXP);
-	// 	return Array.from(embeds);
-	// } else {
 	const embeds = markdown.matchAll(EMBED_URL_REGEXP);
-	// 	return Array.from(embeds);
-	// }
+	return Array.from(embeds);
 }
 
 export async function getLinks(markdown: string) {
 	const links = markdown.matchAll(LINK_URL_REGEXP);
 	return Array.from(links)
+}
+
+export async function getEmbedBlock(markdown: string, text: string) {
+	let contentList = markdown.split('\n')
+
+	let content = contentList.find(e => e.includes(text));
+	content = '> ' + content
+	return content
+}
+export async function getHeadingContent(markdown: string, text: string) {
+	let contentList = markdown.split('\n')
+	const indexOfAll = (arr, val) => arr.reduce((acc, el, i) => (el[0] === val ? [...acc, i] : acc), []);
+	let headingsIndex = indexOfAll(contentList, "#")
+	let headings = headingsIndex.map(i => contentList[i])
+	let startOfContentIndex = headings.findIndex(e => e.includes(text))
+	let endOfContentIndex = contentList.length - 1
+	let startofContentLevel = contentList[headingsIndex[startOfContentIndex]].split(" ")[0].split("#").length - 1
+
+	for (let index = startOfContentIndex + 1; index < headings.length; index++) {
+		let headingLevel = headings[index].split(" ")[0].split("#").length - 1;
+		if (startofContentLevel >= headingLevel) {
+			endOfContentIndex = headingsIndex[index]
+			break
+		}
+	}
+
+	let releventContent = contentList.slice(headingsIndex[startOfContentIndex], endOfContentIndex);
+	releventContent = releventContent.map(e => "> " + e + " \n")
+	let content = releventContent.join('')
+	return content
 }
 
 // get all markdown parameters
@@ -121,9 +145,8 @@ export async function tryCopyImage(
 		await plugin.app.vault.adapter
 			.read(contentPath)
 			.then(async (content) => {
-				const imageLinks = await getImageLinks(content);
+				const imageLinks = await getLinks(content);
 				for (const index in imageLinks) {
-					console.log("copy image imageLink", index, imageLinks[index])
 					var imageLink = imageLinks[index][1];
 
 					const imageLinkMd5 = md5(imageLink);
@@ -131,14 +154,9 @@ export async function tryCopyImage(
 					if (imageLink.contains("#")) {
 						imageLink = imageLink.split("#")[0]
 					}
-					// if (imageExt) {
-					// 	imageLink.concat(".md")
-					// }
-					console.log("imageLink", imageLink)
+
 					const ifile = plugin.app.metadataCache.getFirstLinkpathDest(imageLink, contentPath);
-					console.log('ifile', ifile)
 					if (ifile) {
-						console.log("in ifile loop", ifile)
 						if (plugin.settings.individual_folders) {
 							plugin.app.vault.adapter
 								.copy(
@@ -204,25 +222,71 @@ export async function tryCopyMarkdown(
 }
 
 export async function getEmbedMap(plugin: MarkdownExportPlugin, content: string, path: string) {
-	// key：link url 
+	// key：link url
 	// value： embed content parse from html document
 	const embedMap = new Map();
-	const embedList = Array.from(document.documentElement.getElementsByClassName('internal-embed'));
-	// console.log("embedlist", embedList)
+	const newAttachmentsList = await getImageLinks(content)
+	const attachmentNames = newAttachmentsList.map(x => x[0]);
+	const newEmbedList = (await getEmbeds(content)).filter(embed => !attachmentNames.includes(embed[0]))
+	console.log('NEWEMBEDLIST', newEmbedList)
+
+	let contentPath = path
+	for (let index in newEmbedList) {
+
+		let file = newEmbedList[index][1]
+		let content = null
+		if (file.contains("#")) {
+			content = file.split("#").slice(-1)[0]
+			file = file.split("#")[0]
 
 
-	Array.from(embedList).forEach((el) => {
-		// markdown-embed-content markdown-embed-page
-		const embedContentHtml = el.getElementsByClassName('markdown-embed-content')[0];
-
-		if (embedContentHtml) {
-			let embedValue = htmlToMarkdown(embedContentHtml.innerHTML);
-			embedValue = '> ' + (embedValue as string).replaceAll('# \n\n', '# ').replaceAll('\n', '\n> ');
-			const embedKey = el.getAttribute("src");
-			embedMap.set(embedKey, embedValue);
 		}
-	});
-	// console.log("return map:", embedMap)
+
+
+
+		const filePath = plugin.app.metadataCache.getFirstLinkpathDest(file, contentPath);
+
+		const text = await this.app.vault.read(filePath)
+		// still need to address when links and embeds have display text. Haven't tested at all yet. 
+		if (content && content.startsWith('^')) {
+			let embedContent = await getEmbedBlock(text, content)
+			let embedValue = embedContent;
+			embedValue = '\n > FROM: ' + plugin.settings.attachments + "/" + file + "\n" + embedContent;
+			let embedKey = newEmbedList[index][1];
+			embedMap.set(embedKey, embedValue);
+
+		}
+
+		else if (content) {
+			let embedContent = await getHeadingContent(text, content)
+			let embedValue = embedContent;
+			embedValue = '\n > FROM: ' + plugin.settings.attachments + "/" + file + "\n" + embedContent;
+			let embedKey = newEmbedList[index][1];
+			embedMap.set(embedKey, embedValue);
+
+
+		}
+
+		else {
+			console.log("FULL EMBED TEXT")
+			let embedText = text.split("\n").map(e => "> " + e).join('')
+			let embedValue = "\n > FROM: " + plugin.settings.attachments + "/" + file + "\n" + embedText
+			let embedKey = newEmbedList[index][1]
+			embedMap.set(embedKey, embedValue)
+		}
+
+
+		if (newAttachmentsList) {
+			newAttachmentsList.forEach(e => {
+				console.log("ATTACHMENT", e)
+				let embedValue = e[1];
+				embedValue = plugin.settings.attachments + "/" + embedValue;
+				const embedKey = e[1];
+				embedMap.set(embedKey, embedValue);
+			})
+		}
+
+	}
 	return embedMap;
 }
 
@@ -233,19 +297,10 @@ export async function tryCopyMarkdownByRead(
 ) {
 	try {
 		await plugin.app.vault.adapter.read(file.path).then(async (content) => {
-			// console.log('markdown contents:', content)
-			const imageLinks = await getImageLinks(content);
-			const embededLinks = await getEmbeds(content)
-			const otherLinks = await getLinks(content)
-
-			// console.log('imagelinks', imageLinks)
-			// console.log('embeds:', embededLinks)
-			// console.log('links:', otherLinks)
+			const imageLinks = await getLinks(content);
 
 			for (const index in imageLinks) {
-				// console.log("in loop:", index, imageLinks[index])
 				const rawImageLink = imageLinks[index][0];
-				// imageLink is the actual name of the file.
 				const imageLink = imageLinks[index][1];
 				const imageLinkMd5 = md5(imageLink);
 				const imageExt = path.extname(imageLink);
@@ -264,28 +319,19 @@ export async function tryCopyMarkdownByRead(
 				}
 				else if (plugin.settings.No_Mkdwn) {
 					content = content.replace(rawImageLink, NO_MKDWN_FORMAT.format(imageLink))
-
-				}
-				else {
-					// content = content.replace(imageLink, hashLink);
 				}
 			}
 			const cfile = plugin.app.workspace.getActiveFile();
 
-			// for some reason this doesn't trigger if github markdown is on. Not sure what's it's checking for if that's the case now.
-			// console.log("cfile:", cfile)
-			// if (cfile != undefined) {
-			// 	// console.log('in cfile if loop')
-			// 	const embedMap = await getEmbedMap(plugin, content, cfile.path);
-			// 	const embeds = await getEmbeds(content);
-			// 	// console.log("embeds:", embeds)
-			// 	for (const index in embeds) {
-			// 		const url = embeds[index][1];
-			// 		// console.log('cfile_url', url)
-			// 		// console.log('cfile_embed', embeds[index][0], embedMap.get(url))
-			// 		content = content.replace(embeds[index][0], "Test\\" + embeds[index][0]);
-			// 	}
-			// }
+
+			if (file != undefined) {
+				const embedMap = await getEmbedMap(plugin, content, file.path);
+				const embeds = await getEmbeds(content);
+				for (const index in embeds) {
+					const url = embeds[index][1];
+					content = content.replace(embeds[index][0], embedMap.get(url));
+				}
+			}
 
 			await tryCopyImage(plugin, file.path, path.parse(file.name).name);
 

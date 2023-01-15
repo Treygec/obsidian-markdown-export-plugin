@@ -1,4 +1,11 @@
-export const ATTACHMENT_URL_REGEXP = /!\[\[((.*?)\.(\w+))\]\]/g;
+// All allowed filetypes in obsidian as of 1/10/2023 https://help.obsidian.md/How+to/Embed+files
+export const ALL_ATTACHMENT_REGEXP = /!\[\[((.*?)\.((png|gif|jpg|jpeg|bmp|svg|mp3|webm|wav|m4a|ogg|3gp|flac|mp4|ogv|mov|mkv|pdf)))\]\]/gi;
+//Future plans to have seperate folders for different kinds of attachments
+// export const IMAGE_ATTACHMENT_REGEXP = /!\[\[((.*?)\.(?i)(png|gif|jpg|jpeg|bmp|svg)(?-i))\]\]/gi;
+// export const AUDIO_ATTACHMENT_REGEXP = /!\[\[((.*?)\.(?i)(mp3|wav|m4a|ogg|3gp|flac)(?-i))\]\]/gi;
+// export const VIDEO_ATTACHMENT_REGEXP = /!\[\[((.*?)\.(?i)(mp4|ogv|mov|mkv|webm)(?-i))\]\]/gi;
+// export const PDF_ATTACHMENT_REGEXP = /!\[\[((.*?)\.(?i)(pdf)(?-i))\]\]/gi;
+// export const ATTACHMENT_URL_REGEXP = /!\[\[((.*?)\.(\w+))\]\]/gi; not sure this is needed or will work because filenames can have periods in them
 export const EMBED_URL_REGEXP = /!\[\[(.*?)\]\]/g;
 export const LINK_URL_REGEXP = /\[\[(.*?)\]\]/g;
 
