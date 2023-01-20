@@ -1,5 +1,5 @@
 // All allowed filetypes in obsidian as of 1/10/2023 https://help.obsidian.md/How+to/Embed+files
-export const ALL_ATTACHMENT_REGEXP = /!\[\[((.*?)\.((png|gif|jpg|jpeg|bmp|svg|mp3|webm|wav|m4a|ogg|3gp|flac|mp4|ogv|mov|mkv|pdf)))\]\]/gi;
+export const ALL_ATTACHMENT_REGEXP = /!\[\[((.*?)\.(([pP][nN][gG]|[gG][iI][fF]|[jJ][pP][gG]|[jJ][pP][eE][gG]|[bB][mM][pP]|[sS][vV][gG]|[mM][pP]3|[wW][eE][bB][mM]|[wW][aA][vV]|[mM]4[aA]|[oO][gG][gG]|3[gG][pP]|[fF][lL][aA][cC]|[mM][pP]4|[oO][gG][vV]|[mM][oO][vV]|[mM][kK][vV]|[pP][dD][fF])))\]\]/gi;
 //Future plans to have seperate folders for different kinds of attachments
 // export const IMAGE_ATTACHMENT_REGEXP = /!\[\[((.*?)\.(?i)(png|gif|jpg|jpeg|bmp|svg)(?-i))\]\]/gi;
 // export const AUDIO_ATTACHMENT_REGEXP = /!\[\[((.*?)\.(?i)(mp3|wav|m4a|ogg|3gp|flac)(?-i))\]\]/gi;

@@ -228,7 +228,6 @@ export async function getEmbedMap(plugin: MarkdownExportPlugin, content: string,
 	const newAttachmentsList = await getImageLinks(content)
 	const attachmentNames = newAttachmentsList.map(x => x[0]);
 	const newEmbedList = (await getEmbeds(content)).filter(embed => !attachmentNames.includes(embed[0]))
-	console.log('NEWEMBEDLIST', newEmbedList)
 
 	let contentPath = path
 	for (let index in newEmbedList) {
