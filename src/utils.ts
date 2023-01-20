@@ -268,9 +268,8 @@ export async function getEmbedMap(plugin: MarkdownExportPlugin, content: string,
 		}
 
 		else {
-			console.log("FULL EMBED TEXT")
-			let embedText = text.split("\n").map(e => "> " + e).join('')
-			let embedValue = "\n > FROM: " + plugin.settings.attachments + "/" + file + "\n" + embedText
+			let embedText = text.split("\n").map(e => "> " + e + "\n").join('')
+			let embedValue = "\n > FROMs: " + plugin.settings.attachments + "/" + file + "\n" + embedText
 			let embedKey = newEmbedList[index][1]
 			embedMap.set(embedKey, embedValue)
 		}
